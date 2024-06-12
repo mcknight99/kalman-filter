@@ -1,14 +1,14 @@
 #include "apogeeprediction.h"
 #include "math.h"
-#include <chrono>
-using namespace std::chrono;
+//#include <chrono>
+//using namespace std::chrono;
 #include <iostream>
 
-ApogeePrediction::ApogeePrediction(double rocketMass, double dragCoefficient, double crossArea, double targetApogee) : rocketMass(rocketMass), dragCoefficient(dragCoefficient), crossArea(crossArea), targetApogee(targetApogee) {
-    currentVelocity = 0;
-    lastRecTime = 0;
-    predApogee = 0;
-}
+//ApogeePrediction::ApogeePrediction(double rocketMass, double dragCoefficient, double crossArea, double targetApogee) : rocketMass(rocketMass), dragCoefficient(dragCoefficient), crossArea(crossArea), targetApogee(targetApogee) {
+//    currentVelocity = 0;
+//    lastRecTime = 0;
+//    predApogee = 0;
+//}
 
 void ApogeePrediction::eulerFromQuaternion(double *euler, double x, double y, double z, double w) {
     double t0 = +2.0 * (w * x + y * z);
@@ -32,27 +32,27 @@ void ApogeePrediction::eulerFromQuaternion(double *euler, double x, double y, do
     // yaw_z = yaw_z * 180 / 3.14159
 }
 
-void ApogeePrediction::calcVelocity(double acceleration) {
-    //previous curTime code was micros(), so I kept the cast as micros but can be nanos
-    double curTime = (double)(duration_cast<microseconds>(system_clock::now().time_since_epoch()).count()); 
-    double deltaTime = (curTime - lastRecTime) / pow(10, 6);
-    currentVelocity += acceleration * deltaTime;
-    lastRecTime = curTime;
-}
+//void ApogeePrediction::calcVelocity(double acceleration) {
+//    //previous curTime code was micros(), so I kept the cast as micros but can be nanos
+//    double curTime = (double)(duration_cast<microseconds>(system_clock::now().time_since_epoch()).count()); 
+//    double deltaTime = (curTime - lastRecTime) / pow(10, 6);
+//    currentVelocity += acceleration * deltaTime;
+//    lastRecTime = curTime;
+//}
 
 
-double ApogeePrediction::predictApogee(double* acceleration, double* orientation, double pressure, double temperature, double altitude) {
-    double euler[3] = {0, 0, 0};
-    eulerFromQuaternion(euler, orientation[0], orientation[1], orientation[2], orientation[3]);  // Convert to radians
-    double azvect = -acceleration[0] * sin(euler[1]) + acceleration[1]*cos(euler[1])*sin(euler[0]) + acceleration[2] * cos(euler[1])*cos(euler[0]); // vertical acceleration component, from the bno08x
-    calcVelocity(azvect);
-    
-    double rho = pressure*100/(287.058*(temperature+273.15)); // Get dry air density
-    double k = 0.5*rho*dragCoefficient*crossArea;
-    double predApogee = ((rocketMass/(2*k))*log((rocketMass*9.807 + k*pow(currentVelocity,2))/(rocketMass*9.807))+altitude); // Apogee prediction in meters
-
-    return predApogee;
-}
+//double ApogeePrediction::predictApogee(double* acceleration, double* orientation, double pressure, double temperature, double altitude) {
+//    double euler[3] = {0, 0, 0};
+//    eulerFromQuaternion(euler, orientation[0], orientation[1], orientation[2], orientation[3]);  // Convert to radians
+//    double azvect = -acceleration[0] * sin(euler[1]) + acceleration[1]*cos(euler[1])*sin(euler[0]) + acceleration[2] * cos(euler[1])*cos(euler[0]); // vertical acceleration component, from the bno08x
+//    calcVelocity(azvect);
+//    
+//    double rho = pressure*100/(287.058*(temperature+273.15)); // Get dry air density
+//    double k = 0.5*rho*dragCoefficient*crossArea;
+//    double predApogee = ((rocketMass/(2*k))*log((rocketMass*9.807 + k*pow(currentVelocity,2))/(rocketMass*9.807))+altitude); // Apogee prediction in meters
+//
+//    return predApogee;
+//}
 
 //mass of rocket - rocketMass (kg)
 //drag co - dragCoefficient ()

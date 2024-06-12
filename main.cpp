@@ -1,13 +1,18 @@
 #include "apogeeprediction.h"
 #include "ahrs.h"
+#include "windows.h"
 #include "kf-2d.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <map>
+#include <vector>
+#include <string>
 
 #include <thread>
 #include <chrono>
+
+// Testing: find upper and lower bounds for different simulation variables (mass, drag coefficient, cross-sectional area, apogee) or weather variables (pressure, temperature, wind speed, etc)
 
 AHRS ahrs;
 AHRSMap ahrsIn;   // will be in the format of gyro xyz, accel xyz, mag xyz
@@ -33,7 +38,7 @@ float lastA = 0;
 
 // prototypes
 void setup();
-void loop(const KF2D::MeasurementVector &measurement, float dt, int fileNum);
+void loop(const KF2D::MeasurementVector &measurement, int fileNum);
 
 // its better to have a yellow estimate over the appred and desired apogee
 // no its better to underestimate so we dont activate brakes when the real apogee is lower than we think
@@ -157,15 +162,16 @@ int main()
         {
 
           std::cout << "\n\n\n\n\n"; 
-          std::cout<<measurement[0] << ", " << measurement[1] << ", " << KF.x_hat[0] << ", " << KF.x_hat[1] << ", " << KF.x_hat[2]<<std::endl;
+          std::cout<<measurement[0] << ", " << measurement[1] << ", " << KF.getPrediction()[0] << ", " << KF.getPrediction()[1] << ", " << KF.getPrediction()[2]<<std::endl;
           KF.InitializeKalmanFilter(measurement); // there may be a small chance that back to back KF will "smudge" if it doesnt fully clean from this line
             std::cout<<"FILTER RESET ";
-          std::cout<<measurement[0] << ", " << measurement[1] << ", " << KF.x_hat[0] << ", " << KF.x_hat[1] << ", " << KF.x_hat[2]<<std::endl;
+          std::cout<<measurement[0] << ", " << measurement[1] << ", " << KF.getPrediction()[0] << ", " << KF.getPrediction()[1] << ", " << KF.getPrediction()[2]<<std::endl;
           std::cout<<"\n\n\n\n\n";
         }
         else if (rowNum > 1)
         {
-          loop(measurement, dt, i);
+          Sleep(dt*1000);
+          loop(measurement, i);
         }
         else
         {
@@ -175,7 +181,7 @@ int main()
         // PREDICT APOGEE HERE
         // std::cout<<"pt:"<<pressure<<","<<temperature<<std::endl;
         // replacing measurement[0] with KF.x_hat[0]
-        double predApogee = ApogeePrediction::newPredictApogee(KF.x_hat[1], KF.x_hat[0], pressure, temperature, recordedDragCoefficients[i], recordedMasses[i], recordedCrossAreas[i]);
+        double predApogee = ApogeePrediction::newPredictApogee(KF.getPrediction()[1], KF.getPrediction()[0], pressure, temperature, recordedDragCoefficients[i], recordedMasses[i], recordedCrossAreas[i]);
 
         // 2.5676298406m tall
         if (recordedApogees[i] - 2.568 <= predApogee && predApogee <= recordedApogees[i] + 2.568)
@@ -277,7 +283,7 @@ void setup()
   std::cout << "Finished setup\033[0m\n";
 }
 
-void loop(const KF2D::MeasurementVector &measurement, float dt, int fileNum)
+void loop(const KF2D::MeasurementVector &measurement, int fileNum)
 {
   //..telemData = telemetry.getTelemetry(); //change to get next data from fstream
 
@@ -323,7 +329,7 @@ void loop(const KF2D::MeasurementVector &measurement, float dt, int fileNum)
 
   // KF2D::MeasurementVector localMeasurement = {measurement[0], ahrsData["gx"]*9.81};
 
-  KF.Update(measurement, dt);
+  KF.Update(measurement);
   KF.Predict();
   if (printKF)
   {
@@ -331,7 +337,7 @@ void loop(const KF2D::MeasurementVector &measurement, float dt, int fileNum)
     {
       std::cout << "\033[3;42;30mt= " << timeElapsed << "\t";
       std::cout << "altitude = " << measurement[0] << "\t y-acceleration = " << measurement[1] << "\t";
-      std::cout << "x_hat: \t" << KF.x_hat[0] << " m, \t\x1B[31m" << KF.x_hat[1] << " m/s\033[3;42;30m, \t" << KF.x_hat[2] << " m/s/s\033[0m";
+      std::cout << "x_hat: \t" << KF.getPrediction()[0] << " m, \t\x1B[31m" << KF.getPrediction()[1] << " m/s\033[3;42;30m, \t" << KF.getPrediction()[2] << " m/s/s\033[0m";
     }
     else
     {
@@ -342,18 +348,18 @@ void loop(const KF2D::MeasurementVector &measurement, float dt, int fileNum)
       std::cout << "t= " << timeElapsed << "\t";
       std::cout << "altitude = " << measurement[0] << "\t y-acceleration = " << measurement[1] << "\t";
 
-      if (KF.x_hat[1] > lastV)
+      if (KF.getPrediction()[1] > lastV)
       { // if V is going up, green text
-        std::cout << "x_hat: \t" << KF.x_hat[0] << " m, \t\x1B[32m" << KF.x_hat[1] << " m/s\033[0m, \t" << KF.x_hat[2] << " m/s/s";
+        std::cout << "x_hat: \t" << KF.getPrediction()[0] << " m, \t\x1B[32m" << KF.getPrediction()[1] << " m/s\033[0m, \t" << KF.getPrediction()[2] << " m/s/s";
       }
       else
       { // if V is going down, red text
-        std::cout << "x_hat: \t" << KF.x_hat[0] << " m, \t\x1B[31m" << KF.x_hat[1] << " m/s\033[0m, \t" << KF.x_hat[2] << " m/s/s";
+        std::cout << "x_hat: \t" << KF.getPrediction()[0] << " m, \t\x1B[31m" << KF.getPrediction()[1] << " m/s\033[0m, \t" << KF.getPrediction()[2] << " m/s/s";
       }
     }
 
-    lastV = KF.x_hat[1];
-    lastAKF = KF.x_hat[2];
+    lastV = KF.getPrediction()[1];
+    lastAKF = KF.getPrediction()[2];
     lastA = measurement[1];
   }
 
