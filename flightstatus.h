@@ -4,6 +4,7 @@
 #include <deque>
 #include <vector>
 #include <algorithm>
+#include <string>
 
 enum Stage {
     ARMED,
@@ -26,6 +27,7 @@ class FlightStatus {
     FlightStatus();
     void newTelemetry(double acceleration, double altitude);
     Stage getStage();
+    std::string getStageString();
 };
 
 #endif

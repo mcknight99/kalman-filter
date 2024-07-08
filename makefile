@@ -1,6 +1,10 @@
-compileRunMain:	
+compileRunMainSim:
 	g++ kf-2d.cpp -c -Wall -o "KF-2D.o"
-	g++ main.cpp -Wall -o "Main.exe" Matrix.o Fusion.o ApogeePrediction.o FlightStatus.o KF-2D.o
+	g++ main_sim.cpp -Wall -Wextra -Werror -o "Main_sim.exe" Matrix.o Fusion.o ApogeePrediction.o FlightStatus.o KF-2D.o
+	.\Main_sim.exe
+
+compileRunMainIRL:	
+	g++ main_irl.cpp -Wall -o "Main_irl.exe" Matrix.o Fusion.o ApogeePrediction.o FlightStatus.o KF-2D.o
 	.\Main.exe
 
 all:
@@ -10,10 +14,9 @@ all:
 	g++ apogeeprediction.cpp -c -Wall -o "ApogeePrediction.o"
 	g++ flightstatus.cpp -c -Wall -o "FlightStatus.o"
 	g++ kf-2d.cpp -c -Wall -o "KF-2D.o"
-	g++ main.cpp -Wall -o "Main.exe" Matrix.o Fusion.o ApogeePrediction.o FlightStatus.o KF-2D.o
-
+	
 run:
-	.\Main.exe
+	.\Main_irl.exe
 
 clean:
 	del *.o

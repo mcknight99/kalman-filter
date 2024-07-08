@@ -23,10 +23,12 @@ public:
     KF2D();                                                            // constructor
     void InitializeKalmanFilter(const MeasurementVector &measurement); // initialize, only needs to run once. can also be used to reset a KF. should be ran at
     void Predict();                                                    // should I also have a delta time predict?? or take average over time dt and use that
-    void Update(const MeasurementVector &measurement); //, float delta_time
+    void Update(const MeasurementVector &measurement, float delta_time); //, float delta_time
     StateVector getPrediction();                                       // return the x_hat StateVector
     long long getNow();                                                // return the time in ns at call 
     long long getLastTime();                                           // return the last time the filter was updated in ns
+    void UpdateCovariance(const MeasurementVector &measurement);
+    void clearHistory(); //clears the history of the filter
 
 private:
     // Define Kalman Filter matrices (P, A, H, R, Q)
@@ -48,6 +50,9 @@ private:
     // Phone: -144m +-12m (1030.74 hPa)
     // Altimeter: -147m
     // 3m off of phone, +-15m
+
+    std::vector<MeasurementVector> measurement_history;
+    std::vector<StateVector> state_history;
 };
 
 #endif

@@ -1,0 +1,2 @@
+export: time, altitude, vertical velocity, vertical acceleration, air temperature, air pressure.
+Include field descriptions and flight events

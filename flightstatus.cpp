@@ -58,3 +58,21 @@ Stage FlightStatus::getStage() {
 }
 
 
+
+std::string FlightStatus::getStageString() {
+    switch(flightStage) {
+        case ARMED:
+            return "ARMED";
+        case ASCENT:
+            return "ASCENT";
+        case COAST:
+            return "COAST";
+        case APOGEE:
+            return "APOGEE";
+        case DESCENT:
+            return "DESCENT";
+        case ONGROUND:
+            return "ONGROUND";
+    }
+    return "ERROR";
+}

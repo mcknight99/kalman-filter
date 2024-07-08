@@ -3,10 +3,10 @@
 
 class ApogeePrediction {
   private:
-    const double rocketMass;
-    const double dragCoefficient;
-    const double crossArea; // In m^2
-    const double targetApogee;
+    double rocketMass;
+    double dragCoefficient;
+    double crossArea; // In m^2
+    double targetApogee;
 
     double predApogee;
     double currentVelocity;

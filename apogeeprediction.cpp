@@ -77,8 +77,9 @@ float temperature, float dragCoefficient, float rocketMass, float crossArea){
     //yellow within 50
     //red within 100
 
-
-    double rho = pressure*100/(287.058*(temperature+273.15)); // Get dry air density
+    // pressure param is pascal, deleted the *100 because the input should convert from mbar to Pa
+    // temperature param is in celsius so we add 273.15 to convert to kelvin 
+    double rho = pressure/(287.058*(temperature+273.15)); // Get dry air density
     double k = 0.5*rho*dragCoefficient*crossArea;
     double predApogee = ((rocketMass/(2*k))*log((rocketMass*9.807 + k*pow(currentVelocity,2))/(rocketMass*9.807))+altitude); // Apogee prediction in meters
     return predApogee;
