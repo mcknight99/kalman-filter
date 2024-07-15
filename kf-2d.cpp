@@ -68,7 +68,8 @@ void KF2D::InitializeKalmanFilter(const MeasurementVector &measurement)
      // rocket is 2.5676298406m
 
      // Initialize the state vector with initial values
-     x_hat = {measurement[0], 0, measurement[1]}; // Initial posititon, velocity, acceleration (y, vy, ay)
+     //x_hat = {measurement[0], 0, measurement[1]}; // Initial posititon, velocity, acceleration (y, vy, ay)
+     x_hat = {0, 0, 0};
      // should eventually be [0] [1] [2] with a pitot
 
      /*
@@ -84,7 +85,7 @@ void KF2D::InitializeKalmanFilter(const MeasurementVector &measurement)
            0 0 1
             */
      H = {{1, 0}, {0, 0}, {0, 1}};
-     Update(measurement, 0);
+     //Update(measurement, 0);
 }
 
 // Predict the next state using the process model
@@ -104,43 +105,47 @@ void KF2D::Predict()
 // In either case, it needs to be update in state matrices using dt
 void KF2D::Update(const MeasurementVector &measurement, float delta_time) //, float delta_time
 {
-     // long long now = getNow();
-     // float delta_time = (float)(now-lastTime);
-     // lastTime = now;
-     // delta_time/=1E9; //convert ns to s
-     // uk = measurement[1]; // should be measurement[2] when we read y, vy, ay
-     // actually got removed when gravity gets shifted in the measurement
+     if (delta_time != 0)
+     {
+          std::cout << "dt=" << delta_time << "\t";
 
-     /*
-     auto thisTime = duration_cast<nanoseconds>(system_clock::now().time_since_epoch()).count();
-     float delta_time = (thisTime - lastTime) / 1E9; // convert nanoseconds to seconds
-     lastTime = thisTime;
-     */
-     // std::cout << "dt=" << delta_time << "\t";
+          /* //this is what it SHOULD look like written out by hand, but linalg.h is col maj
+               A = {{1,    delta_time,    0.5 * delta_time * delta_time},
+                    {0,    1,             delta_time},
+                    {0,    0,             1}};
+                    */
+          A = {{1, 0, 0},
+               {delta_time, 1, 0},
+               {(float)(0.5 * delta_time * delta_time), delta_time, 1}};
 
-     /* //this is what it SHOULD look like written out by hand, but linalg.h is col maj
-          A = {{1,    delta_time,    0.5 * delta_time * delta_time},
-               {0,    1,             delta_time},
-               {0,    0,             1}};
-               */
-     A = {{1, 0, 0},
-          {delta_time, 1, 0},
-          {(float)(0.5 * delta_time * delta_time), delta_time, 1}};
+          // B is really just a vector in our example because it is being added to the state vector and multiplied by the scalar control variable
+          B = {(float)(0.5 * delta_time * delta_time), delta_time, 1};
 
-     // B is really just a vector in our example because it is being added to the state vector and multiplied by the scalar control variable
-     B = {(float)(0.5 * delta_time * delta_time), delta_time, 1};
+          // Calculate the Kalman gain
+          K = mul(mul(P, transpose(H)), inverse(mul(mul(H, P), transpose(H)) + R)); // n,m
 
-     // Calculate the Kalman gain
-     mat<float, 3, 2> K = mul(mul(P, transpose(H)), inverse(mul(mul(H, P), transpose(H)) + R)); // n,m
+          // Update the state estimate based on the measurement and Kalman gain
+          x_hat = x_hat + mul(K, (measurement - mul(H, x_hat)));
 
-     // Update the state estimate based on the measurement and Kalman gain
-     x_hat = x_hat + mul(K, (measurement - mul(H, x_hat)));
+          // Update the error covariance matrix P
+          float3x3 I = identity; // identity is a built in linalg expression
+          P = mul((I - mul(K, H)), P);
 
-     // Update the error covariance matrix P
-     float3x3 I = identity; // identity is a built in linalg expression
-     P = mul((I - mul(K, H)), P);
+          Predict();
+          // UpdateCovariance(measurement); //update covariance should only happen during armed state, not during flight
 
-     Predict();
+          // if the measurement is NaN or too large, reset the filter
+          // measurements should never be larger than 100,000 in any variable. If they are, something is wrong
+          for (float estimated : x_hat)
+          {
+               if (std::isnan(estimated) || abs(estimated) > 100000)
+               {
+                    std::cout << stateToString(measurement);
+                    
+                    break;
+               }
+          }
+     }
 }
 
 KF2D::StateVector KF2D::getPrediction()
@@ -165,28 +170,68 @@ long long KF2D::getLastTime()
 
 void KF2D::UpdateCovariance(const MeasurementVector &measurement)
 {
-    measurement_history.push_back(measurement);
-    state_history.push_back(x_hat);
+     measurement_history.push_back(measurement);
+     state_history.push_back(x_hat);
 
-    // Logic to update Q and R based on historical data
-    if (measurement_history.size() > 1)
-    {
-        float2 measurement_diff = measurement - measurement_history[measurement_history.size() - 2];
-        R = R + outerprod(measurement_diff, measurement_diff);
-        R = R / (measurement_history.size() - 1);
-    }
+     // Logic to update Q and R based on historical data
+     if (measurement_history.size() > 1)
+     {
+          float2 measurement_diff = measurement - measurement_history[measurement_history.size() - 2];
+          R = R + outerprod(measurement_diff, measurement_diff);
+          R = R / (measurement_history.size() - 1);
+     }
 
-    if (state_history.size() > 1)
-    {
-        float3 state_diff = x_hat - state_history[state_history.size() - 2];
-        Q = Q + outerprod(state_diff, state_diff);
-        Q = Q / (state_history.size() - 1);
-    }
-    
+     if (state_history.size() > 1)
+     {
+          float3 state_diff = x_hat - state_history[state_history.size() - 2];
+          Q = Q + outerprod(state_diff, state_diff);
+          Q = Q / (state_history.size() - 1);
+     }
 }
 
 void KF2D::clearHistory()
 {
-    measurement_history.clear();
-    state_history.clear();
+     measurement_history.clear();
+     state_history.clear();
+}
+
+void KF2D::clearState()
+{
+     x_hat = {0, 0, 0};
+     P = {{0.3, 0.3, 0.3},
+          {0.3, 0.3, 0.3},
+          {0.3, 0.3, 0.3}};
+     Q = {{0.3, 0.3, 0.3},
+          {0.3, 0.3, 0.3},
+          {0.3, 0.3, 0.3}};
+}
+
+std::string KF2D::stateToString(MeasurementVector measurement)
+{
+     std::string state = "State: " + std::to_string(x_hat[0]) + ", " + std::to_string(x_hat[1]) + ", " + std::to_string(x_hat[2]) + "\n";
+
+     state += "Measurement: " + std::to_string(measurement[0]) + ", " + std::to_string(measurement[1]) + "\n";
+
+     std::string P_Q_string = "P:\t\t\t\t\t\tQ:\t\t\t\t\t\t\tK:\n";
+     for (int i = 0; i < 3; i++)
+     {
+          for (int j = 0; j < 3; j++)
+          {
+               P_Q_string += std::to_string(P[i][j]) + "\t";
+          }
+          P_Q_string += "|\t";
+          for (int j = 0; j < 3; j++)
+          {
+               P_Q_string += std::to_string(Q[i][j]) + "\t";
+          }
+          P_Q_string += "|\t";
+          for (int j = 0; j < 2; j++)
+          {
+               P_Q_string += std::to_string(K[i][j]) + "\t";
+          }
+          P_Q_string += "\n";
+     }
+     state += P_Q_string;
+
+     return state;
 }

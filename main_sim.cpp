@@ -145,7 +145,7 @@ void readFile(File<Telemetry> &file)
 
 double percentError(double prediction, double actual)
 {
-    return 100 * ((prediction - actual) / actual);
+    return abs(100 * ((prediction - actual) / actual));
 }
 
 // @param prediction: predicted value
@@ -168,7 +168,7 @@ std::string colorGradePrediction(double prediction, double actual)
     double error = percentError(prediction, actual);
     for (auto percent : percentages)
     {
-        if (percent.first > error)
+        if (percent.first > error && error >= 0)
         {
             return percent.second;
         }
@@ -186,9 +186,17 @@ void simulateFile(File<Telemetry> &file)
     AHRS ahrs;
     KF2D kf;
 
-    std::ofstream outputFile = std::ofstream("simulated data/" + file.name + "_output.csv");
-    // output file column format: time, altitude, %error altitude, velocity, %error velocity, acceleration, %error acceleration, appred, %error appred
-    outputFile << "time,altitude,%error altitude,velocity,%error velocity,acceleration,%error acceleration,appred,%error appred\n";
+    std::ofstream outputFile = std::ofstream("ORK simulated data/" + file.name + "_output.csv");
+
+    if(!outputFile.is_open())
+    {
+        std::cerr << "Failed to open output file" << std::endl;
+        return;
+    }
+
+    // output file format: time, altitude, vertical velocity, vertical acceleration, air temperature, air pressure, simulation time step, predicted apogee
+    outputFile << "# Time (s),Altitude (m),Vertical velocity (m/s),Vertical acceleration (m/s²),Air temperature (°C),Air pressure (mbar),Simulation time step (s),Apogee (m)\n";
+    
 
     float last_time = 0;
     bool initialized = false;
@@ -207,10 +215,13 @@ void simulateFile(File<Telemetry> &file)
                 std::cout << "Skipping descent\n";
                 break; // skip the descent
             }
+
+            outputFile << "# Event " << data.event << " occurred at t=" << data.time << " seconds\n";
         }
         else
         {
             float this_time = data.time;
+            float delta_time = this_time - last_time;
             KF2D::MeasurementVector measurement = {(float)data.altitude, (float)data.acceleration};
             if (!initialized)
             {
@@ -220,7 +231,7 @@ void simulateFile(File<Telemetry> &file)
             }
             else
             {
-                kf.Update(measurement, this_time - last_time);
+                kf.Update(measurement, delta_time);
             }
             KF2D::StateVector prediction = kf.getPrediction();
             std::cout << "Time: " << data.time << "s, " << data.altitude << "m, " << data.velocity << "m/s, " << data.acceleration << "m/s/s, " << data.temperature << "*C,  " << data.pressure << "mbar -> ";
@@ -248,19 +259,15 @@ void simulateFile(File<Telemetry> &file)
             std::cout << "appred=" << appred << colors.DEFAULT_COLOR;
             Sleep(40);
             std::cout << std::endl;
-            last_time = this_time;
 
-            outputFile << data.time << ","
-                       << data.altitude << ","
-                       << percentError(prediction.x, data.altitude) << ","
-                       << prediction.y << ","
-                       << percentError(prediction.y, data.velocity) << ","
-                       << prediction.z << ","
-                       << percentError(prediction.z, data.acceleration) << ","
-                       << appred << ","
-                       << percentError(appred, file.apogee) << "\n";
+            //write to the output file with estimated state of the rocket (altitude, velocity, acceleration) and the predicted apogee
+            outputFile<< data.time << "," << prediction.x << "," << prediction.y << "," << prediction.z << "," << data.temperature << "," << data.pressure << "," << delta_time << "," << appred << "\n";
+            
+            last_time = this_time;
         }
     }
+    outputFile.close();
+
 }
 
 // @param files: vector of files to simulate
@@ -283,7 +290,7 @@ int main()
     std::vector<File<Telemetry>> files;
     // files.push_back({"sim1", std::ifstream("simulated data/ORK sim example.csv"), std::vector<Telemetry>()});
     // files.push_back({"sim2", std::ifstream("simulated data/ORK real example.csv"), std::vector<Telemetry>()});
-    files.push_back({"sim3", std::ifstream("simulated data/SAC NM test sim with extra vars.csv"), std::vector<Telemetry>()});
+    files.push_back({"sim3", std::ifstream("ORK simulated data/SAC NM test sim with extra vars.csv"), std::vector<Telemetry>()});
 
     simulateFileList(files);
 }

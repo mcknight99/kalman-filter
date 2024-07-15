@@ -29,12 +29,15 @@ public:
     long long getLastTime();                                           // return the last time the filter was updated in ns
     void UpdateCovariance(const MeasurementVector &measurement);
     void clearHistory(); //clears the history of the filter
+    void clearState(); //clears the state of the filter in case of errant data
+    std::string stateToString(MeasurementVector measurement = {0,0}); //prints the state of the filter
 
 private:
     // Define Kalman Filter matrices (P, A, H, R, Q)
-    mat<float, 3, 3> P; // Estimate error covariance //n,n
+    mat<float, 3, 2> K; // Kalman gain matrix //n,m
     mat<float, 3, 3> A; // State transition matrix //n,n
     mat<float, 2, 3> H; // State to measurement matrix //m,n
+    mat<float, 3, 3> P; // Estimate error covariance //n,n
     mat<float, 2, 2> R; // Measurement noise covariance matrix //m,m
     mat<float, 3, 3> Q; // Process noise covariance matrix //n,n
     float3 B;           // Control Variable transition matrix //ulen,n
@@ -47,12 +50,10 @@ private:
     //debating removing the accel from the state matrix, maybe even adding the derivations and integrations for velocity as inputs and letting the system choose 
     //between state, deriv, integ, and eventually pitot
 
-    // Phone: -144m +-12m (1030.74 hPa)
-    // Altimeter: -147m
-    // 3m off of phone, +-15m
-
     std::vector<MeasurementVector> measurement_history;
     std::vector<StateVector> state_history;
+
+
 };
 
 #endif
