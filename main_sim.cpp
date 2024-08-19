@@ -25,7 +25,8 @@
 #include "apogeeprediction.h"
 #include "ahrs.h"
 
-#include "windows.h" //Sleep(ms) for real sim time
+//#include "windows.h" //uncomment this and Sleep(ms) for real sim time
+// Only works on Windows if included
 
 // Color modifiers for terminal
 struct colors
@@ -187,8 +188,20 @@ void simulateFile(File<Telemetry> &file)
     KF2D kf;
 
     std::ofstream outputFile = std::ofstream("ORK simulated data/" + file.name + "_output.csv");
+    std::ofstream testPassFile = std::ofstream("output.csv");
 
-    if(!outputFile.is_open())
+    // Map to store passed and failed tests
+    // Key: test name
+    // Value: bool for pass/fail
+    std::map<std::string, bool> testResults;
+    testResults["Ascent Detected"] = false;
+    testResults["Coast Detected"] = false;
+    testResults["Descent Detected"] = false;
+    testResults["Apogee does not predict over 100 ft from real apogee"] = true;
+    testResults["Predict apogee within 2 seconds after burnout"] = false;
+    testResults["Apogee prediction percent error must not increase until apogee"] = false;
+
+    if (!outputFile.is_open())
     {
         std::cerr << "Failed to open output file" << std::endl;
         return;
@@ -196,13 +209,13 @@ void simulateFile(File<Telemetry> &file)
 
     // output file format: time, altitude, vertical velocity, vertical acceleration, air temperature, air pressure, simulation time step, predicted apogee
     outputFile << "# Time (s),Altitude (m),Vertical velocity (m/s),Vertical acceleration (m/s²),Air temperature (°C),Air pressure (mbar),Simulation time step (s),Apogee (m)\n";
-    
 
     float last_time = 0;
     bool initialized = false;
     for (size_t i = 0; i < file.rows.size(); i++)
     {
-
+        double burnoutTime = 0;
+        double lastPercentError = 100;
         Telemetry &data = file.rows[i];
         if (data.isEvent)
         {
@@ -210,13 +223,11 @@ void simulateFile(File<Telemetry> &file)
             // Events are listed before the data line, so we can skip the line for entering data and see how accurate our prediction is to the event's time
             // Ideally, the prediction would happen at the same time as the event, but that is nigh impossible with real world problems
 
-            if (data.event == "RECOVERY_DEVICE_DEPLOYMENT")
-            {
-                std::cout << "Skipping descent\n";
-                break; // skip the descent
-            }
-
             outputFile << "# Event " << data.event << " occurred at t=" << data.time << " seconds\n";
+            if (data.event == "BURNOUT")
+            {
+                burnoutTime = data.time;
+            }
         }
         else
         {
@@ -257,17 +268,52 @@ void simulateFile(File<Telemetry> &file)
                 std::cout << colorGradePrediction(appred, file.apogee);
             }
             std::cout << "appred=" << appred << colors.DEFAULT_COLOR;
-            Sleep(40);
+            //Sleep(40); // Uncomment to simulate real time
             std::cout << std::endl;
 
-            //write to the output file with estimated state of the rocket (altitude, velocity, acceleration) and the predicted apogee
-            outputFile<< data.time << "," << prediction.x << "," << prediction.y << "," << prediction.z << "," << data.temperature << "," << data.pressure << "," << delta_time << "," << appred << "\n";
-            
+            // write to the output file with estimated state of the rocket (altitude, velocity, acceleration) and the predicted apogee
+            outputFile << data.time << "," << prediction.x << "," << prediction.y << "," << prediction.z << "," << data.temperature << "," << data.pressure << "," << delta_time << "," << appred << "\n";
+
             last_time = this_time;
+
+            if (appred > file.apogee + 100)
+            {
+                testResults["Apogee does not predict over 100 ft from real apogee"] = false;
+            }
+            if (data.time > burnoutTime + 2 && percentError(appred, file.apogee) > 5)
+            {
+                testResults["Predict apogee within 2 seconds after burnout"] = false;
+            }
+            if (data.time > burnoutTime && percentError(appred, file.apogee) > lastPercentError)
+            {
+                testResults["Apogee prediction percent error must not increase until apogee"] = false;
+            }
+            lastPercentError = percentError(appred, file.apogee);
+
+            if (fs.getStageString() == "ASCENT")
+            {
+                testResults["Ascent Detected"] = true;
+            }
+            else if (fs.getStageString() == "COAST")
+            {
+                testResults["Coast Detected"] = true;
+            }
+            else if (fs.getStageString() == "DESCENT")
+            {
+                testResults["Descent Detected"] = true;
+            }
+
         }
     }
     outputFile.close();
 
+    // Write test results to file
+    testPassFile << "Test,Pass\n";
+    for (auto test : testResults)
+    {
+        testPassFile << test.first << "," << test.second << "\n";
+    }
+    testPassFile.close();
 }
 
 // @param files: vector of files to simulate

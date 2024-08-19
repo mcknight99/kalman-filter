@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Servo Control</title>
+    <style>
+        .slider-container {
+            width: 300px;
+            margin: 50px auto;
+            text-align: center;
+        }
+
+        .slider {
+            width: 100%;
+        }
+
+        .percentage-display {
+            margin-top: 20px;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .send-button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 18px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="slider-container">
+        <h1>Active Aero Demonstration Controller</h1>
+        <input type="range" min="0" max="100" value="50" class="slider" id="percentageSlider">
+        <div class="percentage-display" id="percentageDisplay">50%</div>
+        <button class="send-button" id="sendButton">Send Update</button>
+    </div>
+
+    <script>
+        const slider = document.getElementById('percentageSlider');
+        const display = document.getElementById('percentageDisplay');
+        const sendButton = document.getElementById('sendButton');
+
+        // Update the text display when the slider value changes
+        slider.oninput = function() {
+            display.innerText = this.value + '%';
+        };
+
+        // Send the slider value to the server when the button is clicked
+        sendButton.onclick = function() {
+            const percentage = slider.value;
+
+            // Send the percentage value to the C++ server (using Arduino WebServer)
+            fetch(`/set_servo?percent=${percentage}`)
+                .then(response => response.text())
+                .then(data => console.log(data))
+                .catch(error => console.error('Error:', error));
+        };
+        
+        setInterval(() => {
+            fetch(`/keep_alive`)
+                .then(response => response.text())
+                .then(data => console.log('Keep-alive:', data))
+                .catch(error => console.error('Keep-alive error:', error));
+        }, 15000); // 15 seconds interval
+    </script>
+</body>
+</html>

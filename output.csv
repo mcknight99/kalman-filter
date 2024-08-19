@@ -1,0 +1,7 @@
+Test,Pass
+Apogee does not predict over 100 ft from real apogee,0
+Apogee prediction percent error must not increase until apogee,0
+Ascent Detected,1
+Coast Detected,1
+Descent Detected,1
+Predict apogee within 2 seconds after burnout,0
